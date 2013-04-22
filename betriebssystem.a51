@@ -34,7 +34,7 @@ MOV S0RELH,#0x03 ; 9600 = 03D9H
 
 ;nur für mich zum testen obs meine Funktionen klappen!
 	Call console
-	Call prozessA
+	;Call prozessA
 	Call prozessB
 
 scheduler:
