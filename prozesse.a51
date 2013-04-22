@@ -12,7 +12,7 @@ console:
 ;interpretiert Eingabe(Polling)
 ;schickt StartAdressen an New weiter
 	
-	
+NOP	
 
 RET
 
