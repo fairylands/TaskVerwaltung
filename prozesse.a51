@@ -12,7 +12,6 @@ console:
 ;interpretiert Eingabe(Polling)
 ;schickt StartAdressen an New weiter
 	
-NOP	
 
 RET
 
@@ -26,29 +25,32 @@ RET
 prozessA:
 ;gibt pro sekunde 1 a aus (Timer)
 
-MOV A,#15
 
 ausgabe:
+	MOV A,#255
+	
 	;Timer 
 	SETB TR1 ;Timer starten
 	
 	zaehlerminuseins:
 					timerEnde:	NOP
 								JNB TF1, timerEnde
-					CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)		
+					CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
+					;timerEnde2:	NOP
+					;			JNB TF1, timerEnde2
+					;CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
+
 					SUBB A,#1
 					SETB WDT
 					SETB SWDT
 					CJNE A,#0, zaehlerminuseins
-
-
-	MOV S0BUF,#61h	;schreibt ein a		
+	;schreibt ein a pro Sekunde
+	MOV S0BUF,#61h		
 	gesendet: 	
 				SETB WDT
 				SETB SWDT
 				JNB TI0, gesendet
 	CLR TI0
-
 JMP ausgabe
 
 RET
