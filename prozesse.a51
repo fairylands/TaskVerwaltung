@@ -3,7 +3,8 @@ $NOMOD51
 
 name prozesse
 PUBLIC console, prozessA, prozessB
-EXTRN DATA (var1, var2, var3)
+EXTRN DATA (zweitesA, zweitesR0, varConsole, varProzessA, varProzessB)
+EXTRN CODE (new, delete)
 
 my_code SEGMENT CODE
 RSEG my_code
@@ -13,8 +14,34 @@ RSEG my_code
 ;-----------------------------------------------------------------------------
 console:
 ;interpretiert Eingabe(Polling)
-;schickt StartAdressen an New weiter
-	
+;ruft new auf
+;wenn RI0 = 1 ist springe ich raus!
+CLR RI0
+empfangen:
+			SETB WDT
+			SETB SWDT
+			JNB RI0, empfangen
+MOV A,S0BUF
+
+CJNE A,#61h, keinA
+MOV A,#1
+Call new
+JMP console
+
+keinA:
+	CJNE A,#62h, keinB
+	MOV A,#1
+	Call delete
+	JMP console
+keinB:
+	CJNE A,#63h, keinAkzeptierterBuchstabe
+	MOV A,#2
+	Call new
+	JMP console
+keinAkzeptierterBuchstabe:
+	NOP
+	MOV A,#0
+	JMP console
 
 RET
 
@@ -43,7 +70,7 @@ RET
 
 ;-----------------------------------------------------------------------------
 prozessB:
-;gibt einmalig 54321 aus 
+;gibt einmalig 54321 au
 MOV S0BUF,#35h	
 Call gesendet
 MOV S0BUF,#34h	
@@ -54,6 +81,8 @@ MOV S0BUF,#32h
 Call gesendet
 MOV S0BUF,#31h	
 Call gesendet
+
+Call delete
 RET
 
 
