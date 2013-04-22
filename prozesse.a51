@@ -12,10 +12,10 @@ RSEG my_code
 
 
 ;-----------------------------------------------------------------------------
-console:
-;interpretiert Eingabe(Polling)
-;ruft new auf
-;wenn RI0 = 1 ist springe ich raus!
+console:;---------------------------------------------------------------------
+;interpretiert Eingabe(Polling) 											DONE
+;ruft new auf und schreibt in A richtige Zahl rein: a=1, b=1, c=2 			DONE
+
 CLR RI0
 empfangen:
 			SETB WDT
@@ -40,16 +40,15 @@ keinB:
 	JMP console
 keinAkzeptierterBuchstabe:
 	NOP
-	MOV A,#0
 	JMP console
 
 RET
 
 
 ;-----------------------------------------------------------------------------
-prozessA:
-;gibt pro sekunde 1 a aus (Timer)
-MOV A,#255
+prozessA:;--------------------------------------------------------------------
+;gibt pro sekunde 1 a aus (Timer) 											DONE
+MOV A,#255	
 ;Timer 
 SETB TR1 ;Timer starten
 	
@@ -69,8 +68,8 @@ RET
 
 
 ;-----------------------------------------------------------------------------
-prozessB:
-;gibt einmalig 54321 au
+prozessB:;--------------------------------------------------------------------
+;gibt einmalig 54321 aus, beendet sich dann									DONE
 MOV S0BUF,#35h	
 Call gesendet
 MOV S0BUF,#34h	
@@ -87,11 +86,13 @@ RET
 
 
 ;-----------------------------------------------------------------------------
-gesendet:
+gesendet:;--------------------------------------------------------------------
+;sichert ab, dass etwas gesendet wurde 										DONE
 SETB WDT
 SETB SWDT
 JNB TI0, gesendet
 CLR TI0
 RET
+	
 	
 END
