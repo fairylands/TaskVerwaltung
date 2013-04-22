@@ -1,0 +1,10 @@
+*.LST
+*.OBJ
+*._ia
+*.uvgui*
+*.uvopt
+*.M51
+*.lnp
+*.plg
+*.bak
+TaskVerwaltung
