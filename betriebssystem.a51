@@ -12,7 +12,8 @@ JMP schedulerInterrupt
 
 
 my_data SEGMENT DATA
-RSEG my_data
+RSEG my_data 
+stack: DS 8
 
 
 
@@ -62,16 +63,23 @@ init:
 		SETB BD ; Baudraten-Generator aktivieren
 		MOV S0RELL,#0xD9 ; Baudrate einstellen
 		MOV S0RELH,#0x03 ; 9600 = 03D9H		
+		
+	;Stack
+	MOV sp,#stack
+	
 	;Consolenprozess starten------------------------------------------------------
 	;(setzt A auf 0 damit 'new' erkennt, dass er ein 'aktiv' Flag beim 
 	;Consolenprozess setzen soll)
 		MOV A,#0
 		Call new
 
-	; Timer 0 für Scheduler-Interrupt
-	SETB TR0
-	; Scheduler-Interrupt starten
-	SETB TF0
+		
+		;Timer 
+		SETB TR1 ;Timer starten für Schedule-Interrupt
+		SETB TF1
+				
+
+
 
 	
 	
@@ -162,6 +170,7 @@ prozessAuswahl:
 					;werden verglichen
 					MOV R2, #1
 					CALL compare
+					JMP prozessAktivierung
 										
 		BLaeuft:
 			MOV R7,#1
@@ -171,13 +180,15 @@ prozessAuswahl:
 			;alle Prozesse
 				MOV A,R5
 				ADD A,R6
-				CJNE A, 1, dreiProzesse
+				CJNE A,#1, dreiProzesse
 					;nur Con und B 
 					MOV R2, #2
 					CALL compare
+					JMP prozessAktivierung
 		dreiProzesse:
 			MOV R2,#3
 			CALL compare
+			JMP prozessAktivierung
 		
 weiterleitung:
 	JMP aktiviereCon
