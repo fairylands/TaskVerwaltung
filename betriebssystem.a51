@@ -75,8 +75,10 @@ init:
 
 		
 		;Timer 
-		SETB TR1 ;Timer starten für Schedule-Interrupt
-		SETB TF1
+		; Timer 0 für Scheduler-Interrupt
+		SETB TR0
+		; Scheduler-Interrupt starten
+		SETB TF0
 				
 
 
@@ -92,7 +94,7 @@ scheduler:
 ;alter Prozess wird abgelöst--------------------------------------------------
 	;scannt "byte aktiv", findet den vergangenen prozess heraus (speichert in R0 ab)
 	;sichern von A und R0 (des noch nicht bekannten Prozesses)
-	MOV zweitesA,A
+	MOV zweitesA,A 
 	MOV zweitesR0,R0
 	
 	MOV A, #1
@@ -247,14 +249,6 @@ JMP scheduler
 ;-----------------------------scheduler Interrupt----------------------------- To-Do
 schedulerInterrupt:
 JMP scheduler
-
-
-
-
-
-
-
-
 RET
 
 ;-----------------------------------------------------------------------------

@@ -48,18 +48,14 @@ RET
 ;-----------------------------------------------------------------------------
 prozessA:;--------------------------------------------------------------------
 ;gibt pro sekunde 1 a aus (Timer) 											DONE
-MOV A,#1	
+
 ;Timer 
 SETB TR1 ;Timer starten
-	
-zaehlerminuseins:
-				timerEnde:	NOP
-							JNB TF1, timerEnde
-				CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
-				SUBB A,#1
-				SETB WDT
-				SETB SWDT
-				CJNE A,#0, zaehlerminuseins
+
+timerEnde:	NOP
+		 JNB TF1, timerEnde
+CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
+				
 ;schreibt ein a pro Sekunde
 MOV S0BUF,#61h		
 Call gesendet
