@@ -4,7 +4,7 @@ $NOMOD51
 name prozesse
 PUBLIC console, prozessA, prozessB
 EXTRN DATA (zweitesA, zweitesR0, varConsole, varProzessA, varProzessB)
-EXTRN CODE (new, delete)
+EXTRN CODE (new, delete, save)
 
 my_code SEGMENT CODE
 RSEG my_code
@@ -81,6 +81,12 @@ Call gesendet
 MOV S0BUF,#31h	
 Call gesendet
 
+MOV zweitesA,A
+MOV zweitesR0,R0
+MOV R0,#varProzessB
+Call save
+
+MOV A,#2
 Call delete
 RET
 
