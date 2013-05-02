@@ -4,7 +4,7 @@ $NOMOD51
 name prozesse
 PUBLIC console, prozessA, prozessB
 EXTRN DATA (zweitesA, zweitesR0, varConsole, varProzessA, varProzessB)
-EXTRN CODE (new, delete)
+EXTRN CODE (new, delete, save)
 
 my_code SEGMENT CODE
 RSEG my_code
@@ -48,18 +48,14 @@ RET
 ;-----------------------------------------------------------------------------
 prozessA:;--------------------------------------------------------------------
 ;gibt pro sekunde 1 a aus (Timer) 											DONE
-MOV A,#255	
+
 ;Timer 
 SETB TR1 ;Timer starten
-	
-zaehlerminuseins:
-				timerEnde:	NOP
-							JNB TF1, timerEnde
-				CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
-				SUBB A,#1
-				SETB WDT
-				SETB SWDT
-				CJNE A,#0, zaehlerminuseins
+
+timerEnde:	NOP
+		 JNB TF1, timerEnde
+CLR TF1 ;löst Timer Interrupt aus (zurückgesetzt)
+				
 ;schreibt ein a pro Sekunde
 MOV S0BUF,#61h		
 Call gesendet
@@ -81,6 +77,12 @@ Call gesendet
 MOV S0BUF,#31h	
 Call gesendet
 
+MOV zweitesA,A
+MOV zweitesR0,R0
+MOV R0,#varProzessB
+Call save
+
+MOV A,#2
 Call delete
 RET
 
