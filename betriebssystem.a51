@@ -23,6 +23,11 @@ zweitesR0: DS 1
 varConsole: DS 14
 varProzessA: DS 14
 varProzessB: DS 14
+prozessAStack: DS 8
+prozessBStack: DS 8
+consolenProzessStack: DS 8
+
+nextStack: DS 1
 ;Scheduler Zeitscheibe
 varDauer: DS 1
 ;Schedule Tabelle 
@@ -102,7 +107,7 @@ scheduler:
 	;Con aktiv
 		;ruecksprungSpeichern
 			POP tabAdresseCon+1
-			POP tabAdresseCon												;fraglich
+			POP tabAdresseCon												
 		;Daten des Prozesses sichern
 			MOV R0,#varConsole
 			Call save
@@ -115,7 +120,7 @@ scheduler:
 	;ProzessA aktiv
 		;ruecksprungSpeichern
 			POP tabAdresseA+1
-			POP tabAdresseA													;fraglich
+			POP tabAdresseA													
 		;Daten des Prozesses sichern
 			MOV R0,#varProzessA
 			Call save
@@ -124,11 +129,11 @@ scheduler:
 		JMP prozessAuswahl
 
 	pruefeAktivB:
-	CJNE A, tabAktivB, weiterleitung							;zwischenlösung	
+	CJNE A, tabAktivB, weiterleitung							
 	;ProzessB aktiv
 		;ruecksprungSpeichern
 			POP tabAdresseB+1
-			POP tabAdresseB													;fraglich
+			POP tabAdresseB												
 		;Daten des Prozesses sichern
 			MOV R0,#varProzessB
 			Call save
@@ -202,43 +207,55 @@ prozessAktivierung:
 	
 	CJNE R2,#0, aktiviereAoderB
 		;aktiviere Con
+		MOV R0,#varConsole
+		Call datenHolen;
 		MOV tabAktivCon,#1
 		DEC tabPrioCon
 		INC tabPrioA
 		INC tabPrioB
-		PUSH tabAdresseCon												;fraglich
+		MOV SP,nextStack
+		PUSH tabAdresseCon												
 		PUSH tabAdresseCon+1
 		RETI
 		
 	aktiviereAoderB:
 	CJNE R2,#1, aktiviereB
 		;aktiviere A
+		MOV R0,#varProzessA
+		Call datenHolen;
 		MOV tabAktivA,#1
 		DEC tabPrioA
 		INC tabPrioCon
 		INC tabPrioB
-		PUSH tabAdresseA												;fraglich
+		MOV SP,nextStack
+		PUSH tabAdresseA												
 		PUSH tabAdresseA+1
 		RETI
 		
 	aktiviereB:
 	CJNE R2,#2, aktiviereCon
 		;aktiviere B
+		MOV R0,#varProzessB		
+		Call datenHolen;
 		MOV tabAktivB,#1
 		DEC tabPrioB
 		INC tabPrioCon
 		INC tabPrioA
-		PUSH tabAdresseB												;fraglich
+		MOV SP,nextStack
+		PUSH tabAdresseB												
 		PUSH tabAdresseB+1
 		RETI
 			
 	aktiviereCon:;einfach per default, wenn was schief geht 
 		;aktiviere Con
+		MOV R0,#varConsole		
+		Call datenHolen;
 		MOV tabAktivCon,#1
 		DEC tabPrioCon
 		INC tabPrioA
 		INC tabPrioB
-		PUSH tabAdresseCon												;fraglich
+		MOV SP,nextStack
+		PUSH tabAdresseCon											
 		PUSH tabAdresseCon+1
 		RETI
 	
@@ -246,7 +263,7 @@ JMP scheduler
 
 
 ;-----------------------------------------------------------------------------
-;-----------------------------scheduler Interrupt----------------------------- To-Do
+;-----------------------------scheduler Interrupt----------------------------- 
 schedulerInterrupt:
 JMP scheduler
 RET
@@ -263,11 +280,21 @@ CJNE A,#0, keinConsolenprozess
 		MOV tabAktivCon,#0
 	;Byte läuft 
 		MOV DPTR, #console
-		MOV tabAdresseCon, DPL;Evtl fehlt hier eine Raute 							m.FQ
-		MOV tabAdresseCon+1, DPH;Evtl fehlt hier eine Raute 						m.FQ
+		MOV tabAdresseCon, DPL						
+		MOV tabAdresseCon+1, DPH	
 	;Priorität initialisieren
 		MOV tabPrioCon,#2
 		MOV A,#0
+		MOV R0,#varConsole
+		
+		conSpeicherAufNull: 
+			INC A
+			MOV @R0,#0
+			INC R0 
+			CJNE A,#14,conSpeicherAufNull		
+		MOV A,#0
+		MOV R0, #varConsole+12
+		MOV @R0,#consolenProzessStack-1
 		JMP endeNew
 
 keinConsolenprozess:
@@ -280,11 +307,21 @@ CJNE A,#1, keineConOderProzA
 			MOV tabAktivA,#0
 		;Byte läuft 
 			MOV DPTR, #prozessA
-			MOV tabAdresseA, DPL	;Evtl fehlt hier eine Raute 					m.FQ
-			MOV tabAdresseA+1, DPH;Evtl fehlt hier eine Raute 						m.FQ
+			MOV tabAdresseA, DPL						
+			MOV tabAdresseA+1, DPH					
 		;Priorität initialisieren
 			MOV tabPrioA,#2
-		MOV A,#0
+			MOV A,#0
+			MOV R0,#varProzessA
+			
+			aSpeicherAufNull: 
+				INC A
+				MOV @R0,#0
+				INC R0 
+				CJNE A,#14,aSpeicherAufNull		
+			MOV A,#0
+			MOV R0, #varProzessA+12
+			MOV @R0,#prozessAStack-1
 		JMP endeNew
 
 keineConOderProzA:
@@ -294,11 +331,21 @@ CJNE A,#2, keinProzessS
 		MOV tabAktivB,#0
 	;Byte läuft 
 		MOV DPTR, #prozessB
-		MOV tabAdresseB, DPL;Evtl fehlt hier eine Raute 							m.FQ
-		MOV tabAdresseB+1,DPH;Evtl fehlt hier eine Raute 							m.FQ
+		MOV tabAdresseB, DPL						
+		MOV tabAdresseB+1,DPH							
 	;Priorität initialisieren
 		MOV tabPrioB,#2
-	MOV A,#0
+		MOV A,#0
+		MOV R0,#varProzessB
+			
+		bSpeicherAufNull: 
+			INC A
+			MOV @R0,#0
+			INC R0 
+			CJNE A,#14,bSpeicherAufNull		
+		MOV A,#0
+		MOV R0, #varProzessB+12
+		MOV @R0,#prozessBStack-1
 	JMP endeNew
 	
 keinProzessS: ;kann eigentlich nicht passieren, aber damit es vollständig ist
@@ -307,6 +354,9 @@ keinProzessS: ;kann eigentlich nicht passieren, aber damit es vollständig ist
 	
 endeNew: 
 	NOP
+	
+	
+	
 
 RET 
 
@@ -346,8 +396,7 @@ keinProzessL: ;kann eigentlich nicht passieren, aber damit es vollständig ist
 	JMP endeDelete
 	
 endeDelete:
-	NOP
-	
+		SETB TF0
 RET
 
 
@@ -392,12 +441,74 @@ save:
 	MOV @R0,A
 	INC R0
 	MOV A,SP
+	SUBB A,#2
 	MOV @R0,A
 	INC R0
 	MOV A,B
 	MOV @R0,A
 	
 RET
+
+;-----------------------------------------------------------------------------
+;---------------------------DATEN HOLEN---------------------------------------		IN PROCESS
+
+datenHolen:
+
+	MOV A,@R0
+	MOV zweitesA,A
+	INC R0
+	MOV A,@R0
+	MOV zweitesR0,A
+	INC R0
+	
+	MOV A,@R0
+	MOV R1,A
+	INC R0
+	MOV A,@R0
+	MOV R2,A
+	INC R0
+	MOV A,@R0
+	MOV R3,A
+	INC R0
+	MOV A,@R0
+	MOV R4,A
+	INC R0
+	MOV A,@R0
+	MOV R5,A
+	INC R0
+	MOV A,@R0
+	MOV R6,A
+	INC R0
+	MOV A,@R0
+	MOV R7,A
+	INC R0
+	
+	MOV A,@R0
+	MOV PSW,A
+	INC R0
+	
+	MOV A,@R0
+	MOV DPH,A
+	INC R0
+	MOV A,@R0
+	MOV DPL,A
+	INC R0
+	MOV A,@R0
+	MOV nextStack,A
+	INC R0
+	MOV A,@R0
+	MOV B,A
+	INC R0
+	
+	MOV A,zweitesA
+	MOV R0,zweitesR0
+	
+	
+RET
+
+
+
+
 
 ;-----------------------------------------------------------------------------
 ;-----------------------------COMPARE-----------------------------------------		DONE
