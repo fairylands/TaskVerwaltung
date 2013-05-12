@@ -1,5 +1,4 @@
 ;Datei Prozesse enthält den Consolenprozess, sowie Prozess A und B 
-
 $NOMOD51
 #include <Reg517a.inc>
 

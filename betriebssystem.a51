@@ -4,18 +4,13 @@ $NOMOD51
 PUBLIC zweitesA,zweitesR0,varConsole,varProzessA,varProzessB,new,delete,save
 EXTRN CODE (console, prozessA, prozessB)
 
-;----------------------schedulerInterrupt-----------------------------
 CSEG 
 ORG 0x0B
 JMP schedulerInterrupt
 
-
-
 my_data SEGMENT DATA
 RSEG my_data 
 stack: DS 8
-
-
 
 ;Reservieren von Datenspeicher
 zweitesA: DS 1
@@ -26,10 +21,11 @@ varProzessB: DS 14
 prozessAStack: DS 8
 prozessBStack: DS 8
 consolenProzessStack: DS 8
-
 nextStack: DS 1
+
 ;Scheduler Zeitscheibe
 varDauer: DS 1
+
 ;Schedule Tabelle 
 tabAktivCon: DS 1
 tabAktivA: DS 1
@@ -43,11 +39,9 @@ tabPrioCon: DS 1
 tabPrioA: DS 1
 tabPrioB: DS 1
 
-
 CSEG
 ORG 0
 JMP init
-
 codeSegment SEGMENT CODE
 RSEG codeSegment
 
@@ -72,27 +66,21 @@ init:
 	;Stack
 	MOV sp,#stack
 	
-	;Consolenprozess starten------------------------------------------------------
+	;Consolenprozess starten--------------------------------------------------
 	;(setzt A auf 0 damit 'new' erkennt, dass er ein 'aktiv' Flag beim 
 	;Consolenprozess setzen soll)
 		MOV A,#0
 		Call new
-
 		
 		;Timer 
 		; Timer 0 für Scheduler-Interrupt
 		SETB TR0
 		; Scheduler-Interrupt starten
 		SETB TF0
-				
-
-
-
-	
-	
-
+		
+		
 ;-----------------------------------------------------------------------------
-;--------------------------SCHEDULER------------------------------------------			TO-DO
+;--------------------------SCHEDULER------------------------------------------		
 
 scheduler:
 
@@ -140,9 +128,6 @@ scheduler:
 		;Byte aktiv auf 0 setzen
 			MOV tabAktivB, #0
 		JMP prozessAuswahl
-
-	
-		
 		
 
 ;Welcher Prozess soll gestartet werden?------------------------------------------------------------
@@ -266,10 +251,12 @@ JMP scheduler
 ;-----------------------------scheduler Interrupt----------------------------- 
 schedulerInterrupt:
 JMP scheduler
+
 RET
 
+
 ;-----------------------------------------------------------------------------
-;-----------------------------NEW---------------------------------------------	DONE
+;-----------------------------NEW---------------------------------------------	
 
 new:
 ;setzt Flag in ScheduleTabelle (bei entsprechendem Prozess) Console=0 A=1 B=2 			
@@ -362,7 +349,7 @@ RET
 
 
 ;-----------------------------------------------------------------------------
-;-----------------------------DELETE------------------------------------------		DONE
+;-----------------------------DELETE------------------------------------------		
 
 delete:
 ;löscht Flag in ScheduleTabelle	(nur bei Prozess A oder B)
@@ -401,7 +388,7 @@ RET
 
 
 ;-----------------------------------------------------------------------------
-;-----------------------------SAVE--------------------------------------------		DONE
+;-----------------------------SAVE--------------------------------------------		
 
 save:
 ;nimmt den Sicherungsvorgang vor
@@ -450,7 +437,7 @@ save:
 RET
 
 ;-----------------------------------------------------------------------------
-;---------------------------DATEN HOLEN---------------------------------------		IN PROCESS
+;---------------------------DATEN HOLEN---------------------------------------		
 
 datenHolen:
 
@@ -511,7 +498,7 @@ RET
 
 
 ;-----------------------------------------------------------------------------
-;-----------------------------COMPARE-----------------------------------------		DONE
+;-----------------------------COMPARE-----------------------------------------		
 
 compare:;arbeitet mit R2
 	
