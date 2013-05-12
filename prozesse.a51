@@ -52,7 +52,7 @@ prozessA:;----------------------------------------------------------------------
 ;Pro Sekunde soll ein 'a' ausgegeben werden. Dieser Prozess wird mit der Eingabe eines 'a' gestartet und 
 ;erst du die Eingabe eines 'b' beendet
 
-MOV A,#255 							;A wird auf den Wert 255 gesetzt und dient als Zählvariable (dies geschieht zur Simulation 
+MOV A,#50							;A wird auf den Wert X gesetzt und dient als Zählvariable (dies geschieht zur Simulation 
 									;einer Sekunde, der Wert kann von PC zu PC unterschiedlich sein)
 SETB TR1 							;durch setzen des TR1 Bit wird der Timer1 gestartet
    zaehlerminuseins:				
