@@ -386,23 +386,25 @@ endeDelete:
 		SETB TF0
 RET
 
+;---------------------- UNTERPROZESS SAVE ---------------------------------------------------------------------------------------
+save:;---------------------------------------------------------------------------------------------------------------------------
+;Dieser Unterprozess nimmt den Sicherungsvorgang vor und speichert alle Regsiter in einen vorgesehenen Speicherbereich.
+;Dazu muss zunächst R0 und der A gesichert werden, da diese zum Speicherungsvorgang benötigt werden.
+;R0 wird in zweitesR0 zwischengespeichert, A wird in zweitesA zwischengespeichert -> dies geschieht schon vor Aufruf von 'save'
 
-;-----------------------------------------------------------------------------
-;-----------------------------SAVE--------------------------------------------		
-
-save:
-;nimmt den Sicherungsvorgang vor
-	MOV @R0,zweitesA
-	INC R0
-	MOV @R0,zweitesR0
-	INC R0
-	MOV A,R1
-	MOV @R0,A
-	INC R0
-	MOV A,R2
-	MOV @R0,A
-	INC R0
-	MOV A,R3
+;ab hier werden die Daten gespeichert: 	(es gibt 3 Schritte, die sich immer wieder wiederholen)
+	MOV @R0,zweitesA 					;R0 zeigt auf das 1. Byte des Speicherbereichs und legt "zweitesA" dort ab
+	INC R0								;R0 wird um 1 erhöht und zeigt nun auf das 2. Byte
+	MOV @R0,zweitesR0					;R0 speichert in das 2.Byte den Inhalt von "zweitesR0" ab
+	INC R0								;R0 wird um 1 erhöht und zeigt nun auf das 3. Byte
+	;es gibt 3 Schritte, die sich ab hier immer wieder wiederholen
+	MOV A,R1							;(1) der Inhalt von R1 wird in A gespeichert	
+	MOV @R0,A							;(2) R0 speichert in das 3.Byte den Inhalt von A ab
+	INC R0								;(3) R0 wird um 1 erhöht und zeigt nun auf das 4. Byte
+	MOV A,R2							;(1) der Inhalt von R2 wird in A gespeichert
+	MOV @R0,A							;(2) R0 speichert in das 4.Byte den Inhalt von A ab
+	INC R0								;(3) R0 wird um 1 erhöht und zeigt nun auf das 5. Byte
+	MOV A,R3							;...Wiederholung
 	MOV @R0,A
 	INC R0
 	MOV A,R4
@@ -417,7 +419,6 @@ save:
 	MOV A,R7
 	MOV @R0,A
 	INC R0
-	
 	MOV A,PSW
 	MOV @R0,A
 	INC R0
@@ -436,25 +437,25 @@ save:
 	
 RET
 
-;-----------------------------------------------------------------------------
-;---------------------------DATEN HOLEN---------------------------------------		
-
-datenHolen:
-
+;----------------------------- UNTERPROZESS DATEN HOLEN -------------------------------------------------------------------------
+datenHolen:;---------------------------------------------------------------------------------------------------------------------
+;Beim Start eines Prozesses werden zunächst die zwischengespeicherten Daten wieder in die Register geladen
+;Dazu muss zunächst der A und das Register R0 zwischengespeichert werden, da diese zum laden der Daten benötigt werden und um 
+;Datenverlust zu verhindern 
 	MOV A,@R0
 	MOV zweitesA,A
 	INC R0
 	MOV A,@R0
 	MOV zweitesR0,A
 	INC R0
-	
-	MOV A,@R0
-	MOV R1,A
-	INC R0
-	MOV A,@R0
-	MOV R2,A
-	INC R0
-	MOV A,@R0
+;ab hier werden die Daten geladen: 	(es gibt 3 Schritte, die sich immer wieder wiederholen)
+	MOV A,@R0				;(1) R0 ist ein Zeiger auf das 3. Byte des Speichers und lädt den Inhalt in den A
+	MOV R1,A				;(2) Der Inhalt des A wird nun in das zugehörige Register R1 geladen
+	INC R0					;(3) R0 wird um 1 erhöht, also wird der Zeiger auf das 4. Byte verschoben 
+	MOV A,@R0				;(1) R0 ist ein Zeiger auf das 4. Byte des Speichers und lädt den Inhalt in den A
+	MOV R2,A				;(2) Der Inhalt des A wird nun in das zugehörige Register R2 geladen
+	INC R0					;(3) R0 wird um 1 erhöht, also wird der Zeiger auf das 5. Byte verschoben 
+	MOV A,@R0				;...Wiederholung
 	MOV R3,A
 	INC R0
 	MOV A,@R0
@@ -468,12 +469,10 @@ datenHolen:
 	INC R0
 	MOV A,@R0
 	MOV R7,A
-	INC R0
-	
+	INC R0	
 	MOV A,@R0
 	MOV PSW,A
 	INC R0
-	
 	MOV A,@R0
 	MOV DPH,A
 	INC R0
@@ -486,9 +485,9 @@ datenHolen:
 	MOV A,@R0
 	MOV B,A
 	INC R0
-	
-	MOV A,zweitesA
-	MOV R0,zweitesR0
+;es wurden alle Daten wieder in die Register geladen, nun fehlen noch der A und R0 welche bisher zum Laden genutzt wurden	
+	MOV A,zweitesA			;der Inhalt von zweitesA (welches zu Beginn des 'compare' gesichert wurde) wird in den A geladen
+	MOV R0,zweitesR0		;der Inhalt von zweitesR0 (welches zu Beginn des 'compare' gesichert wurde) wird in R0 geladen
 	
 	
 RET
@@ -496,16 +495,25 @@ RET
 
 
 
-
-;-----------------------------------------------------------------------------
-;-----------------------------COMPARE-----------------------------------------		
-
-compare:;arbeitet mit R2
+;------------------------------ UNTERPROZESS COMPARE ----------------------------------------------------------------------------
+compare:;------------------------------------------------------------------------------------------------------------------------
+;Dieser Unterprozess dient dem Vergleich der verschiedenen laufenden Prozesse und entscheidet anhand der Priorität, welcher 
+;Prozess gestartet werden soll
+;im Register 2 wurde die Art des Vergleichs abgespeichert: 
+	;R2=1 ->	Consolenprozess und Prozess A werden verglichen
+	;R2=2 ->	Consolenprozess und Prozess B werden verglichen
+	;R2=3 ->	alle drei Prozessprioritäten müssen verglichen werden
+;Der Vergleich ist kein direkter Vergleich, es werden alle Prozesse nacheinander mit vorgeschriebenen Prioritäten verglichen. 
+;(Und nicht direkt miteinander.)
+;Da die höchste Priorität die 2 ist wird erst geschaut: Hat Prozess X die Priorität 2? 
+;JA -> Prozess X wird gestartet, NEIN -> Nächster Prozess wird auf gleiche Frage untersucht
+;Sofern kein Prozess die Priorität 2 hat, wird die gleiche Frage mit der Priorität 1  gestellt. (usw.)
+;das Ergebnis des Vergleichs wird dabei in Register 2 zwischengespeichert
 	
-	CJNE R2,#1, conBoderAlle;--------------------------------------------------
-		;R2=1
-		MOV R2,tabPrioCon
-		CJNE R2,#2, conHatNichtPrio2test1
+	CJNE R2,#1, conBoderAlle					;der Inhalt des  R2 wird geprüft
+		;R2=1, Consolenprozess und Prozess A werden verglichen
+		MOV R2,tabPrioCon										
+		CJNE R2,#2, conHatNichtPrio2test1		
 			;Prio bei Con = 2
 				MOV R2,#0
 				JMP endeCompare
@@ -537,8 +545,8 @@ compare:;arbeitet mit R2
 		
 		
 	conBoderAlle:;-------------------------------------------------------------
-	CJNE R2,#2, alleProzesse
-		;R2=2
+	CJNE R2,#2, alleProzesse					;der Inhalt des  R2 wird geprüft
+		;R2=2, Consolenprozess und Prozess B werden verglichen
 		MOV R2,tabPrioCon
 		CJNE R2,#2, conHatNichtPrio2test2
 			;Prio bei Con = 2
@@ -571,7 +579,7 @@ compare:;arbeitet mit R2
 			
 		
 	alleProzesse:;-------------------------------------------------------------
-	;R2=3
+		;R2=2, alle Prozesse werden verglichen
 		MOV R2,tabPrioCon
 		CJNE R2,#2, conHatNichtPrio2test3
 			;Prio bei Con = 2
