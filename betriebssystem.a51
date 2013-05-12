@@ -1,6 +1,6 @@
 $NOMOD51
 #include <Reg517a.inc>
-;Einstellungen----------------------------------------------------------------
+;----------------------------- EINSTELLUNGEN ------------------------------------------------------------------------------------
 PUBLIC zweitesA,zweitesR0,varConsole,varProzessA,varProzessB,new,delete,save
 EXTRN CODE (console, prozessA, prozessB)
 
@@ -12,7 +12,7 @@ my_data SEGMENT DATA
 RSEG my_data 
 stack: DS 8
 
-;Reservieren von Datenspeicher
+;----------------------------- RESERVIEREN VON DATENSPEICHER --------------------------------------------------------------------
 zweitesA: DS 1
 zweitesR0: DS 1
 varConsole: DS 14
@@ -23,10 +23,10 @@ prozessBStack: DS 8
 consolenProzessStack: DS 8
 nextStack: DS 1
 
-;Scheduler Zeitscheibe
+;----------------------------- SCHEDULER ZEITSCHEIBE ----------------------------------------------------------------------------
 varDauer: DS 1
 
-;Schedule Tabelle 
+;----------------------------- SCHEDULE TABELLE ---------------------------------------------------------------------------------
 tabAktivCon: DS 1
 tabAktivA: DS 1
 tabAktivB: DS 1
@@ -46,344 +46,325 @@ codeSegment SEGMENT CODE
 RSEG codeSegment
 
 
-;-----------------------------------------------------------------------------
-;Hauptprogramm----------------------------------------------------------------
+;--------------------------------------------------------------------------------------------------------------------------------
+;----------------------------- HAUPTPROGRAMM ------------------------------------------------------------------------------------
 ;besteht aus init, scheduler, new und delete
 init:
-;Initialisierungen für den Prozessor------------------------------------------
-	; Interrupts aktivieren
-		SETB EAL
-		SETB IEN0.1
-	; Serial Mode 1: 8bit-UART bei Baudrate 9600
-		CLR SM0
-		SETB SM1
-	; Schnittstelle aktivieren
-		SETB REN0 ; Empfang ermöglichen
-		SETB BD ; Baudraten-Generator aktivieren
-		MOV S0RELL,#0xD9 ; Baudrate einstellen
-		MOV S0RELH,#0x03 ; 9600 = 03D9H		
+;----------------------------- INITIALISIERUNGEN FÜR DEN PROZESSOR --------------------------------------------------------------
+; Interrupts aktivieren
+	SETB EAL
+	SETB IEN0.1
+; Serial Mode 1: 8bit-UART bei Baudrate 9600
+	CLR SM0
+	SETB SM1
+; Schnittstelle aktivieren
+	SETB REN0 ; Empfang ermöglichen
+	SETB BD ; Baudraten-Generator aktivieren
+	MOV S0RELL,#0xD9 ; Baudrate einstellen
+	MOV S0RELH,#0x03 ; 9600 = 03D9H		
 		
-	;Stack
-	MOV sp,#stack
+;Stack
+MOV sp,#stack
+;----------------------------- CONSOLENPROZESS STARTEN --------------------------------------------------------------------------
+;(setzt A auf 0 damit 'new' erkennt, dass er ein 'aktiv' Flag beim 
+;Consolenprozess setzen soll)
+MOV A,#0
+Call new
+		
+;Timer 
+; Timer 0 für Scheduler-Interrupt
+SETB TR0
+; Scheduler-Interrupt starten
+SETB TF0
+		
+		
+;----------------------------- SCHEDULER ----------------------------------------------------------------------------------------
+scheduler:;----------------------------------------------------------------------------------------------------------------------
+;besteht aus drei großen Teilen: 
+	;(1) Ablösen des alten Prozesses
+	;(2) Auswahl des neuen Prozesses
+	;(3) Aktivieren des neuen Prozesses
 	
-	;Consolenprozess starten--------------------------------------------------
-	;(setzt A auf 0 damit 'new' erkennt, dass er ein 'aktiv' Flag beim 
-	;Consolenprozess setzen soll)
-		MOV A,#0
-		Call new
-		
-		;Timer 
-		; Timer 0 für Scheduler-Interrupt
-		SETB TR0
-		; Scheduler-Interrupt starten
-		SETB TF0
-		
-		
-;-----------------------------------------------------------------------------
-;--------------------------SCHEDULER------------------------------------------		
-
-scheduler:
-
-;alter Prozess wird abgelöst--------------------------------------------------
-	;scannt "byte aktiv", findet den vergangenen prozess heraus (speichert in R0 ab)
-	;sichern von A und R0 (des noch nicht bekannten Prozesses)
-	MOV zweitesA,A 
-	MOV zweitesR0,R0
+;----------------------------- ABLÖSEN DES ALTEN PROZESSES ----------------------------------------------------------------------
+;scannt "byte aktiv", findet den vergangenen prozess heraus (speichert in R0 ab)
+;sichern von A und R0 (des noch nicht bekannten Prozesses)
+MOV zweitesA,A 
+MOV zweitesR0,R0
 	
-	MOV A, #1
-	CJNE A, tabAktivCon, pruefeAktivA
-	;Con aktiv
-		;ruecksprungSpeichern
-			POP tabAdresseCon+1
-			POP tabAdresseCon												
-		;Daten des Prozesses sichern
-			MOV R0,#varConsole
-			Call save
-		;Byte aktiv auf 0 setzen
-			MOV tabAktivCon, #0
-		JMP prozessAuswahl
+MOV A, #1
+CJNE A, tabAktivCon, pruefeAktivA
+;Con aktiv
+	;ruecksprungSpeichern
+		POP tabAdresseCon+1
+		POP tabAdresseCon												
+	;Daten des Prozesses sichern
+		MOV R0,#varConsole
+		Call save
+	;Byte aktiv auf 0 setzen
+		MOV tabAktivCon, #0
+	JMP prozessAuswahl
 	
-	pruefeAktivA:
-	CJNE A, tabAktivA, pruefeAktivB
-	;ProzessA aktiv
-		;ruecksprungSpeichern
-			POP tabAdresseA+1
-			POP tabAdresseA													
-		;Daten des Prozesses sichern
-			MOV R0,#varProzessA
-			Call save
-		;Byte aktiv auf 0 setzen
-			MOV tabAktivA, #0
-		JMP prozessAuswahl
+pruefeAktivA:
+CJNE A, tabAktivA, pruefeAktivB
+;ProzessA aktiv
+	;ruecksprungSpeichern
+		POP tabAdresseA+1
+		POP tabAdresseA													
+	;Daten des Prozesses sichern
+		MOV R0,#varProzessA
+		Call save
+	;Byte aktiv auf 0 setzen
+		MOV tabAktivA, #0
+	JMP prozessAuswahl
 
-	pruefeAktivB:
-	CJNE A, tabAktivB, weiterleitung							
-	;ProzessB aktiv
-		;ruecksprungSpeichern
-			POP tabAdresseB+1
-			POP tabAdresseB												
-		;Daten des Prozesses sichern
-			MOV R0,#varProzessB
-			Call save
-		;Byte aktiv auf 0 setzen
-			MOV tabAktivB, #0
-		JMP prozessAuswahl
-		
-
-;Welcher Prozess soll gestartet werden?------------------------------------------------------------
+pruefeAktivB:
+CJNE A, tabAktivB, weiterleitung							
+;ProzessB aktiv
+	;ruecksprungSpeichern
+		POP tabAdresseB+1
+		POP tabAdresseB												
+	;Daten des Prozesses sichern
+		MOV R0,#varProzessB
+		Call save
+	;Byte aktiv auf 0 setzen
+		MOV tabAktivB, #0
+	JMP prozessAuswahl
+	
+	
+;----------------------------- AUSWAHL DES NEUEN PROZESSES ----------------------------------------------------------------------
 prozessAuswahl:
-	;welche Prozesse "laufen" im Hintergrund? R5 = Console läuft(sollte immer laufen)
-	;R6 = Prozess A läuft; R7 = Prozess B läuft	
-		MOV A,#0
-		CJNE A, tabAdresseCon, conLaeuft 
-			MOV R5,#0
-			CJNE A, tabAdresseA, ALaeuft 
-				MOV R6,#0
-				CJNE A, tabAdresseB, BLaeuft
-					MOV R7,#0
-					JMP aktiviereCon
-		conLaeuft:
-			MOV R5,#1
-			CJNE A, tabAdresseA, ALaeuft 
-				MOV R6,#0
-				CJNE A, tabAdresseB, BLaeuft
-					MOV R7,#0	
-					;nur Consolenprozess läuft, in R0 speichern, 
-					;welcher Prozess zu aktivieren ist
-					MOV R0, #0
-					JMP aktiviereCon
-									
-		ALaeuft:
-			MOV R6,#1
+;welche Prozesse "laufen" im Hintergrund? R5 = Console läuft(sollte immer laufen)
+;R6 = Prozess A läuft; R7 = Prozess B läuft	
+	MOV A,#0
+	CJNE A, tabAdresseCon, conLaeuft 
+		MOV R5,#0
+		CJNE A, tabAdresseA, ALaeuft 
+			MOV R6,#0
 			CJNE A, tabAdresseB, BLaeuft
-					MOV R7,#0
-					;nur Prozess A und Console läuft, Priorität muss verglichen 
-					;werden R2 wird gesetzt, das heißt tabPrioA und tabPrioCon 
-					;werden verglichen
-					MOV R2, #1
-					CALL compare
-					JMP prozessAktivierung
-										
-		BLaeuft:
-			MOV R7,#1
-			;entweder Con und B laufen, oder alle drei
-			;zur Identifikation der laufenden Prozesse: B läuft auf jeden Fall,
-			;R5+R6 = x , wenn x = 1 dann läuft nur Con und B, wenn x = 2 laufen 
-			;alle Prozesse
-				MOV A,R5
-				ADD A,R6
-				CJNE A,#1, dreiProzesse
-					;nur Con und B 
-					MOV R2, #2
-					CALL compare
-					JMP prozessAktivierung
-		dreiProzesse:
-			MOV R2,#3
-			CALL compare
-			JMP prozessAktivierung
-		
+				MOV R7,#0
+				JMP aktiviereCon
+	conLaeuft:
+		MOV R5,#1
+		CJNE A, tabAdresseA, ALaeuft 
+			MOV R6,#0
+				CJNE A, tabAdresseB, BLaeuft
+				MOV R7,#0	
+				;nur Consolenprozess läuft, in R0 speichern, 
+				;welcher Prozess zu aktivieren ist
+				MOV R0, #0
+				JMP aktiviereCon
+								
+	ALaeuft:
+		MOV R6,#1
+		CJNE A, tabAdresseB, BLaeuft
+				MOV R7,#0
+				;nur Prozess A und Console läuft, Priorität muss verglichen 
+				;werden R2 wird gesetzt, das heißt tabPrioA und tabPrioCon 
+				;werden verglichen
+				MOV R2, #1
+				CALL compare
+				JMP prozessAktivierung
+									
+	BLaeuft:
+		MOV R7,#1
+		;entweder Con und B laufen, oder alle drei
+		;zur Identifikation der laufenden Prozesse: B läuft auf jeden Fall,
+		;R5+R6 = x , wenn x = 1 dann läuft nur Con und B, wenn x = 2 laufen 
+		;alle Prozesse
+			MOV A,R5
+			ADD A,R6
+			CJNE A,#1, dreiProzesse
+				;nur Con und B 
+				MOV R2, #2
+				CALL compare
+				JMP prozessAktivierung
+	dreiProzesse:
+		MOV R2,#3
+		CALL compare
+		JMP prozessAktivierung
+	
 weiterleitung:
 	JMP aktiviereCon
 	
 			
-;ProzessAktivierung------------------------------------------------------------------------
+;----------------------------- AKTIVIEREN DES NEUEN PROZESSES -------------------------------------------------------------------
 prozessAktivierung:	
-	;in R2 steht die Nummer des Prozesses mit der höchsten Priorität (0= Con, 1=A, 2=B)
+;in R2 steht die Nummer des Prozesses mit der höchsten Priorität (0= Con, 1=A, 2=B)
+
+CJNE R2,#0, aktiviereAoderB
+	;aktiviere Con
+	MOV R0,#varConsole					;Register R0 zeigt auf die Anfangsadresse des Datenbereichs des Consolenprozesses
+	Call datenHolen  					;Prozessdaten werden geholt
+	MOV tabAktivCon,#1 					;aktiv byte des Consolenprozesses in der Prozesstabelle auf eins setzen 
+	DEC tabPrioCon 						;Priorität des Consolenprozesses dekrementieren
+	INC tabPrioA 						;Priorität von Prozess A inkrementieren
+	INC tabPrioB						;Priorität von Prozess B inkrementieren
+	MOV SP,nextStack				    ;den Stack Pointer auf den prozesseigenen Stack setzen
+	PUSH tabAdresseCon					;die Adresse an der der Consolenprozess unterbrochen wurde wird auf den prozesseigenen Stack gelegt									
+	PUSH tabAdresseCon+1			
+	RETI								;es wird aus der Interrupt-Routine rausgesprungen und der Conolenprozess 
+										;an der Stelle ausgeführt an der es zuletzt unterbrochen wurde
 	
-	CJNE R2,#0, aktiviereAoderB
-		;aktiviere Con
-		MOV R0,#varConsole
-		Call datenHolen;
-		MOV tabAktivCon,#1
-		DEC tabPrioCon
-		INC tabPrioA
-		INC tabPrioB
-		MOV SP,nextStack
-		PUSH tabAdresseCon												
-		PUSH tabAdresseCon+1
-		RETI
-		
-	aktiviereAoderB:
-	CJNE R2,#1, aktiviereB
-		;aktiviere A
-		MOV R0,#varProzessA
-		Call datenHolen;
-		MOV tabAktivA,#1
-		DEC tabPrioA
-		INC tabPrioCon
-		INC tabPrioB
-		MOV SP,nextStack
-		PUSH tabAdresseA												
-		PUSH tabAdresseA+1
-		RETI
-		
-	aktiviereB:
-	CJNE R2,#2, aktiviereCon
-		;aktiviere B
-		MOV R0,#varProzessB		
-		Call datenHolen;
-		MOV tabAktivB,#1
-		DEC tabPrioB
-		INC tabPrioCon
-		INC tabPrioA
-		MOV SP,nextStack
-		PUSH tabAdresseB												
-		PUSH tabAdresseB+1
-		RETI
-			
-	aktiviereCon:;einfach per default, wenn was schief geht 
-		;aktiviere Con
-		MOV R0,#varConsole		
-		Call datenHolen;
-		MOV tabAktivCon,#1
-		DEC tabPrioCon
-		INC tabPrioA
-		INC tabPrioB
-		MOV SP,nextStack
-		PUSH tabAdresseCon											
-		PUSH tabAdresseCon+1
-		RETI
+aktiviereAoderB:
+CJNE R2,#1, aktiviereB
+	;aktiviere A
+	MOV R0,#varProzessA					;Register R0 zeigt auf die Anfangsadresse des Datenbereichs von Prozess A
+	Call datenHolen;				    ;Prozessdaten werden geholt
+	MOV tabAktivA,#1					;aktiv byte des Prozesses A in der Prozesstabelle auf eins setzen 
+	DEC tabPrioA						;Priorität des Prozesses A dekrementieren
+	INC tabPrioCon						;Priorität des Consolenprozesses inkrementieren
+	INC tabPrioB						;Priorität von Prozess B inkrementieren
+	MOV SP,nextStack					;den Stack Pointer auf den prozesseigenen Stack setzen
+	PUSH tabAdresseA					;die Adresse an der Prozess A unterbrochen wurde wird auf den prozesseigenen Stack gelegt								
+	PUSH tabAdresseA+1
+	RETI								;es wird aus der Interrupt-Routine rausgesprungen und der Conolenprozess 
+										;an der Stelle ausgeführt an der es zuletzt unterbrochen wurde
 	
+aktiviereB:
+CJNE R2,#2, aktiviereCon
+	;aktiviere B
+	MOV R0,#varProzessB					;Register R0 zeigt auf die Anfangsadresse des Datenbereichs von Prozess B 
+	Call datenHolen;					;Prozessdaten werden geholt
+	MOV tabAktivB,#1					;aktiv byte des Prozesses B in der Prozesstabelle auf eins setzen 
+	DEC tabPrioB						;Priorität des Prozesses B dekrementieren
+	INC tabPrioCon						;Priorität des Consolenprozesses inkrementieren
+	INC tabPrioA						;Priorität von Prozess A inkrementieren
+	MOV SP,nextStack					;den Stack Pointer auf den prozesseigenen Stack setzen
+	PUSH tabAdresseB					;die Adresse an der Prozess A unterbrochen wurde wird auf den prozesseigenen Stack gelegt								
+	PUSH tabAdresseB+1
+	RETI								;es wird aus der Interrupt-Routine rausgesprungen und der Conolenprozess 
+										;an der Stelle ausgeführt an der es zuletzt unterbrochen wurde
+		
+aktiviereCon:							;einfach per default, wenn was schief geht, die Kommentare für die Aktivierung des Consolenprozesses
+										;gelten hier analog
+	;aktiviere Con
+	MOV R0,#varConsole		
+	Call datenHolen;
+	MOV tabAktivCon,#1
+	DEC tabPrioCon
+	INC tabPrioA
+	INC tabPrioB
+	MOV SP,nextStack
+	PUSH tabAdresseCon											
+	PUSH tabAdresseCon+1
+	RETI
+
 JMP scheduler
 
 
-;-----------------------------------------------------------------------------
-;-----------------------------scheduler Interrupt----------------------------- 
-schedulerInterrupt:
-JMP scheduler
 
+		
+;----------------------------- SCHEDULER INTERRUPT ------------------------------------------------------------------------------
+schedulerInterrupt:;-------------------------------------------------------------------------------------------------------------
+JMP scheduler
 RET
 
 
-;-----------------------------------------------------------------------------
-;-----------------------------NEW---------------------------------------------	
-
-new:
+;----------------------------- NEW ----------------------------------------------------------------------------------------------	
+new:;----------------------------------------------------------------------------------------------------------------------------
 ;setzt Flag in ScheduleTabelle (bei entsprechendem Prozess) Console=0 A=1 B=2 			
 ;wenn a schon aktiv ist und nochmal aktiviert wird, ignoriert der new prozess diesen 
+
 CJNE A,#0, keinConsolenprozess
 ;Consolenprozess starten
-	;Flag aktiv
-		MOV tabAktivCon,#0
-	;Byte läuft 
-		MOV DPTR, #console
-		MOV tabAdresseCon, DPL						
-		MOV tabAdresseCon+1, DPH	
-	;Priorität initialisieren
-		MOV tabPrioCon,#2
-		MOV A,#0
-		MOV R0,#varConsole
-		
-		conSpeicherAufNull: 
-			INC A
-			MOV @R0,#0
-			INC R0 
-			CJNE A,#14,conSpeicherAufNull		
-		MOV A,#0
-		MOV R0, #varConsole+12
-		MOV @R0,#consolenProzessStack-1
-		JMP endeNew
+	MOV tabAktivCon,#0						;das aktiv byte des Consolenprozesses wird aus Sicherheitsgründen auf null gesetzt
+	MOV DPTR, #console						;die Anfangsadresse des Consolenprozesses wird in den data pointer geschrieben
+	MOV tabAdresseCon, DPL					;mit Hilfe des data pointers (2 byte) werden die 'läuft' bytes des Conolenprozesses 	
+	MOV tabAdresseCon+1, DPH			    ;in der Prozesstabelle mit dessen Anfangsadresse initialisiert
+	MOV tabPrioCon,#2						;die Priorität des Consolenprozesses wird mit der Prioritätsstufe 2 initialisiert
+	MOV A,#0								;der Wert des Akkumulators wird auf null gesetzt
+	MOV R0,#varConsole						;Register 0 zeigt auf die Anfangsadresse des Datenbereichs des Consolenprozesses
+
+	conSpeicherAufNull: 					;der prozesseigener Speicherbereich wird (analog zum byte aktiv) mit null initialisiert
+		INC A
+		MOV @R0,#0
+		INC R0 
+		CJNE A,#14,conSpeicherAufNull		
+	MOV A,#0								;der Wert des Akkumulators wird auf null gesetzt
+	MOV R0, #varConsole+12					;der Stack Pointer des Prozesses wird auf die Adresse 
+	MOV @R0,#consolenProzessStack-1			;des prozesseigenen Stackbereichs gesetzt
+	JMP endeNew
 
 keinConsolenprozess:
 CJNE A,#1, keineConOderProzA
 ;ProzessA starten
 	MOV A, tabAktivA
-	;Abfrage handelt es sich um ein 2. 'a' ?
-	CJNE A,#0, keinProzessS
-		;Flag aktiv
-			MOV tabAktivA,#0
-		;Byte läuft 
-			MOV DPTR, #prozessA
-			MOV tabAdresseA, DPL						
-			MOV tabAdresseA+1, DPH					
-		;Priorität initialisieren
-			MOV tabPrioA,#2
-			MOV A,#0
-			MOV R0,#varProzessA
-			
-			aSpeicherAufNull: 
-				INC A
-				MOV @R0,#0
-				INC R0 
-				CJNE A,#14,aSpeicherAufNull		
-			MOV A,#0
-			MOV R0, #varProzessA+12
-			MOV @R0,#prozessAStack-1
-		JMP endeNew
+	CJNE A,#0, keinProzessS						;Abfrage handelt es sich um ein 2. 'a' ?
+		MOV tabAktivA,#0					;das aktiv byte von Prozess A wird aus Sicherheitsgründen auf null gesetzt
+		MOV DPTR, #prozessA					;die Anfangsadresse von Prozess A wird in den data pointer geschrieben
+		MOV tabAdresseA, DPL    		 	;mit Hilfe des data pointers (2 byte) werden die 'läuft' bytes von Prozess A	
+		MOV tabAdresseA+1, DPH				;in der Prozesstabelle mit dessen Anfangsadresse initialisiert			
+		MOV tabPrioA,#2						;die Priorität von Prozess A wird mit der Prioritätsstufe 2 initialisiert
+		MOV A,#0							;der Wert des Akkumulators wird auf null gesetzt
+		MOV R0,#varProzessA					;Register 0 zeigt auf die Anfangsadresse des Datenbereichs von Prozess A
+
+		aSpeicherAufNull: 					;der prozesseigener Speicherbereich wird (analog zum byte aktiv) mit null initialisiert
+			INC A
+			MOV @R0,#0
+			INC R0 
+			CJNE A,#14,aSpeicherAufNull		
+		MOV A,#0							;der Wert des Akkumulators wird auf null gesetzt
+		MOV R0, #varProzessA+12				;der Stack Pointer des Prozesses wird auf die Adresse 
+		MOV @R0,#prozessAStack-1			;des prozesseigenen Stackbereichs gesetzt
+	JMP endeNew
 
 keineConOderProzA:
 CJNE A,#2, keinProzessS
 ;ProzessB starten
-	;Flag aktiv
-		MOV tabAktivB,#0
-	;Byte läuft 
-		MOV DPTR, #prozessB
-		MOV tabAdresseB, DPL						
-		MOV tabAdresseB+1,DPH							
-	;Priorität initialisieren
-		MOV tabPrioB,#2
-		MOV A,#0
-		MOV R0,#varProzessB
-			
-		bSpeicherAufNull: 
-			INC A
-			MOV @R0,#0
-			INC R0 
-			CJNE A,#14,bSpeicherAufNull		
-		MOV A,#0
-		MOV R0, #varProzessB+12
-		MOV @R0,#prozessBStack-1
-	JMP endeNew
-	
-keinProzessS: ;kann eigentlich nicht passieren, aber damit es vollständig ist
+	MOV tabAktivB,#0						;das aktiv byte von Prozess B wird aus Sicherheitsgründen auf null gesetzt
+	MOV DPTR, #prozessB						;die Anfangsadresse von Prozess B wird in den data pointer geschrieben
+	MOV tabAdresseB, DPL				    ;mit Hilfe des data pointers (2 byte) werden die 'läuft' bytes von Prozess B
+	MOV tabAdresseB+1,DPH					;in der Prozesstabelle mit dessen Anfangsadresse initialisiert			
+	MOV tabPrioB,#2							;die Priorität von Prozess B wird mit der Prioritätsstufe 2 initialisiert
+	MOV A,#0								;der Wert des Akkumulators wird auf null gesetzt
+	MOV R0,#varProzessB						;Register 0 zeigt auf die Anfangsadresse des Datenbereichs von Prozess B
+		bSpeicherAufNull: 						;der prozesseigener Speicherbereich wird (analog zum byte aktiv) mit null initialisiert
+		INC A
+		MOV @R0,#0
+		INC R0 
+		CJNE A,#14,bSpeicherAufNull		
+	MOV A,#0								;der Wert des Akkumulators wird auf null gesetzt
+	MOV R0, #varProzessB+12					;der Stack Pointer des Prozesses wird auf die Adresse
+	MOV @R0,#prozessBStack-1				;des prozesseigenen Stackbereichs gesetzt
+JMP endeNew
+
+keinProzessS: 								;kann eigentlich nicht passieren, aber damit es vollständig ist
 	MOV A,#0
 	JMP endeNew
-	
+
 endeNew: 
 	NOP
 	
-	
-	
-
 RET 
 
 
-;-----------------------------------------------------------------------------
-;-----------------------------DELETE------------------------------------------		
-
-delete:
+;----------------------------- DELETE -------------------------------------------------------------------------------------------	
+delete:;-------------------------------------------------------------------------------------------------------------------------
 ;löscht Flag in ScheduleTabelle	(nur bei Prozess A oder B)
-
 
 CJNE A,#1, keinProzessA
 ;ProzessA löschen
-	;Flag aktiv löschen
-		MOV tabAktivA,#0
-	;Byte läuft löschen
-		MOV tabAdresseA, #0
-	;Priorität löschen
-		MOV tabPrioA,#0
-	MOV A,#0
-	JMP endeDelete
+	MOV tabAktivA,#0		;Flag aktiv löschen
+	MOV tabAdresseA, #0		;Byte läuft löschen
+	MOV tabPrioA,#0			;Priorität löschen
+MOV A,#0
+JMP endeDelete
 
 keinProzessA:
 CJNE A,#2, keinProzessL
 ;ProzessB löschen
-	;Flag aktiv löschen
-		MOV tabAktivB,#0
-	;Byte läuft löschen
-		MOV tabAdresseB, #0
-	;Priorität löschen
-		MOV tabPrioB,#0
-	MOV A,#0
-	JMP endeDelete
+	MOV tabAktivB,#0		;Flag aktiv löschen
+	MOV tabAdresseB, #0		;Byte läuft löschen
+	MOV tabPrioB,#0			;Priorität löschen
+MOV A,#0
+JMP endeDelete
 	
 keinProzessL: ;kann eigentlich nicht passieren, aber damit es vollständig ist
-	MOV A,#0
-	JMP endeDelete
+MOV A,#0
+JMP endeDelete
 	
 endeDelete:
-		SETB TF0
+	SETB TF0
 RET
 
 ;---------------------- UNTERPROZESS SAVE ---------------------------------------------------------------------------------------
